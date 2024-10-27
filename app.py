@@ -1,109 +1,57 @@
-# calculate_weight.py
-
-import cv2
-import numpy as np
-import subprocess
-from PIL import Image
 import streamlit as st
+import numpy as np
+import cv2
+import torch
+from PIL import Image
 
-# Define material densities in g/cm^3
-MATERIAL_DENSITIES = {
-    'MS': 7.85,  # Mild Steel
-    'SS': 8.00   # Stainless Steel
-}
+# Function to calculate the weight of the plate
+def calculate_weight(thickness, area, material_density):
+    return thickness * area * material_density
 
-# Conversion factors to centimeters
-UNIT_CONVERSIONS = {
-    'cm': 1,
-    'mm': 0.1,
-    'inch': 2.54
-}
+# Function to get the area of a detected shape
+def get_area_from_image(image):
+    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', source='local')
+    
+    results = model(image)
+    results.show()  # This will display the detected objects if run locally
+    
+    # Process results to find the area
+    area = 0
+    for *box, conf, cls in results.xyxy[0]:  # Get results
+        x1, y1, x2, y2 = map(int, box)  # Convert coordinates to integers
+        area += (x2 - x1) * (y2 - y1)  # Calculate area of bounding box
 
-# Function to calculate weight for regular shapes
-def calculate_weight(thickness, length, width, density):
-    volume = thickness * length * width  # in cm^3
-    weight = volume * density  # weight in grams
-    return weight / 1000  # convert to kg
+    return area
 
-# Function to perform YOLOv5 detection using a subprocess
-def detect_objects_with_yolov5(image_path, output_path="yolov5/runs/detect"):
-    subprocess.run([
-        'python', 'yolov5/detect.py', '--source', image_path,
-        '--weights', 'yolov5/yolov5s.pt', '--conf', '0.5', '--save-txt', '--save-conf'
-    ], check=True)
-    return output_path + "/exp"  # Default save directory
+# Streamlit app layout
+st.title("Weight Calculator for MS/SS Plates")
 
-# Function to calculate weight from segmented area and thickness
-def calculate_irregular_weight(image_path, thickness, density, reference_width_real):
-    output_dir = detect_objects_with_yolov5(image_path)
-    segmented_image_path = f"{output_dir}/image0.jpg"  # Path to output image
+# User input for thickness and dimensions
+thickness = st.number_input("Enter the thickness (mm)", min_value=0.0, step=0.1)
+material_type = st.selectbox("Select material type", ("Mild Steel (MS)", "Stainless Steel (SS)"))
+density = 7.85 if material_type == "Mild Steel (MS)" else 8.00  # g/cm^3
 
-    # Load the processed image with bounding box from YOLOv5
-    segmented_image = cv2.imread(segmented_image_path)
-    gray = cv2.cvtColor(segmented_image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+shape_type = st.selectbox("Select shape type", ("Rectangular", "Square", "Irregular"))
 
-    if len(contours) == 0:
-        st.error("Object not found in the image.")
-        return None
+if shape_type in ["Rectangular", "Square"]:
+    length = st.number_input("Enter length (mm)", min_value=0.0, step=0.1)
+    width = st.number_input("Enter width (mm)", min_value=0.0, step=0.1)
 
-    main_contour = max(contours, key=cv2.contourArea)
-    main_area_pixels = cv2.contourArea(main_contour)
+    area = length * width if shape_type == "Rectangular" else length ** 2
+    weight = calculate_weight(thickness / 1000, area / 1000000, density)  # Convert units to m^3
+    st.write(f"The weight of the {shape_type} plate is: {weight:.2f} kg")
 
-    # Ask the user for the reference object width in real units
-    st.write("Provide a reference object in the image for accurate scaling.")
-    reference_width_pixels = max(cv2.boundingRect(main_contour)[2], 1)  # Avoid division by zero
-
-    # Calculate pixel-to-cm scale
-    pixel_to_cm_ratio = reference_width_real / reference_width_pixels
-    main_area_real = main_area_pixels * (pixel_to_cm_ratio ** 2)  # Area in cm²
-
-    # Calculate volume and weight
-    volume = main_area_real * thickness  # Volume in cm³
-    weight = volume * density  # Weight in grams
-    return weight / 1000  # Convert to kg
-
-# Streamlit app for user interaction
-def main():
-    st.title("MS/SS Sheet Weight Calculator with Irregular Shape Detection")
-
-    # Material selection
-    material_type = st.selectbox("Select Material Type", ("MS", "SS"))
-    density = MATERIAL_DENSITIES[material_type]
-
-    # Unit selection
-    unit = st.selectbox("Select Unit of Measurement", ("cm", "mm", "inch"))
-    conversion_factor = UNIT_CONVERSIONS[unit]
-
-    # Shape selection
-    shape = st.selectbox("Select Shape", ("Rectangular", "Square", "Irregular"))
-
-    if shape in ["Rectangular", "Square"]:
-        thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
-        length = st.number_input("Enter Length", min_value=0.0, format="%.2f") * conversion_factor
-        width = st.number_input("Enter Width", min_value=0.0, format="%.2f") * conversion_factor
-
-        if st.button("Calculate Weight"):
-            weight = calculate_weight(thickness, length, width, density)
-            st.write(f"The weight of the {shape.lower()} sheet is {weight:.2f} kg.")
-
-    elif shape == "Irregular":
-        thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
-        uploaded_image = st.file_uploader("Upload an image of the sheet with a reference object", type=["jpg", "png", "jpeg"])
-
-        reference_width_real = st.number_input(f"Enter the real width of reference object (in {unit})", min_value=0.0, format="%.2f")
-        reference_width_real_cm = reference_width_real * conversion_factor  # convert to cm
-
-        if uploaded_image is not None and reference_width_real_cm > 0:
-            image = np.array(Image.open(uploaded_image))
-            image_path = "uploaded_image.jpg"
-            Image.fromarray(image).save(image_path)
-
-            if st.button("Calculate Weight"):
-                weight = calculate_irregular_weight(image_path, thickness, density, reference_width_real_cm)
-                if weight is not None:
-                    st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
-
-if __name__ == "__main__":
-    main()
+elif shape_type == "Irregular":
+    uploaded_file = st.file_uploader("Upload an image of the irregular shape", type=["jpg", "png", "jpeg"])
+    if uploaded_file is not None:
+        # Read the image
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
+        
+        # Convert image to numpy array for YOLOv5
+        image_np = np.array(image)
+        
+        # Get the area from the image using YOLOv5
+        area = get_area_from_image(image_np)
+        weight = calculate_weight(thickness / 1000, area / 1000000, density)  # Convert units to m^3
+        st.write(f"The estimated weight of the irregular plate is: {weight:.2f} kg")
