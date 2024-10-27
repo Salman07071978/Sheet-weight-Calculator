@@ -10,6 +10,13 @@ MATERIAL_DENSITIES = {
     'SS': 8.00   # Stainless Steel
 }
 
+# Conversion factors to centimeters
+UNIT_CONVERSIONS = {
+    'cm': 1,
+    'mm': 0.1,
+    'inch': 2.54
+}
+
 # Function to calculate weight for regular shapes
 def calculate_weight(thickness, length, width, density):
     volume = thickness * length * width  # in cm^3
@@ -41,20 +48,24 @@ def main():
     material_type = st.selectbox("Select Material Type", ("MS", "SS"))
     density = MATERIAL_DENSITIES[material_type]
 
+    # Unit selection
+    unit = st.selectbox("Select Unit of Measurement", ("cm", "mm", "inch"))
+    conversion_factor = UNIT_CONVERSIONS[unit]
+
     # Shape selection
     shape = st.selectbox("Select Shape", ("Rectangular", "Square", "Irregular"))
 
     if shape in ["Rectangular", "Square"]:
-        thickness = st.number_input("Enter Thickness (cm)", min_value=0.0, format="%.2f")
-        length = st.number_input("Enter Length (cm)", min_value=0.0, format="%.2f")
-        width = st.number_input("Enter Width (cm)", min_value=0.0, format="%.2f")
+        thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
+        length = st.number_input("Enter Length", min_value=0.0, format="%.2f") * conversion_factor
+        width = st.number_input("Enter Width", min_value=0.0, format="%.2f") * conversion_factor
 
         if st.button("Calculate Weight"):
             weight = calculate_weight(thickness, length, width, density)
             st.write(f"The weight of the {shape.lower()} sheet is {weight:.2f} kg.")
 
     elif shape == "Irregular":
-        thickness = st.number_input("Enter Thickness (cm)", min_value=0.0, format="%.2f")
+        thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
         uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg"])
 
         if uploaded_image is not None:
