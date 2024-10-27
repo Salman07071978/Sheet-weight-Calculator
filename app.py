@@ -72,4 +72,19 @@ def main():
     elif shape == "Irregular":
         thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
         calibration_length = st.number_input("Enter the known length of a reference object in the image (in selected unit)", min_value=0.0, format="%.2f") * conversion_factor
-        uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg
+        uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg"])
+
+        if uploaded_image is not None:
+            image = np.array(Image.open(uploaded_image))
+            st.image(image, caption="Uploaded Image", use_column_width=True)
+
+            # Allow the user to draw a line to measure calibration length
+            st.write("Please measure the length of the reference object in pixels using any image editor, and enter it below.")
+            calibration_pixels = st.number_input("Enter the measured length of the reference object in pixels", min_value=1, format="%d")
+
+            if calibration_pixels > 0 and st.button("Calculate Weight"):
+                weight = calculate_irregular_weight(image, thickness, density, calibration_length, calibration_pixels)
+                st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
+
+if __name__ == "__main__":
+    main()
