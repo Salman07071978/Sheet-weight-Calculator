@@ -1,33 +1,33 @@
 import streamlit as st
 
-# Constants for densities (in kg/m³)
-densities = {
-    "Mild Steel (MS)": 7850,  # Density of MS
-    "Stainless Steel (SS)": 8000  # Density of SS
-}
-
-# Title of the app
-st.title("Weight Calculator for Plates")
-
-# User input for dimensions
-length = st.number_input("Enter length (mm)", min_value=0.0, step=0.1)
-width = st.number_input("Enter width (mm)", min_value=0.0, step=0.1)
-thickness = st.number_input("Enter thickness (mm)", min_value=0.0, step=0.1)
-
-# Selection for material type
-material_type = st.selectbox("Select material type", ("Mild Steel (MS)", "Stainless Steel (SS)"))
-
-# Button to calculate weight
-if st.button("Calculate"):
-    # Convert dimensions from mm to m
-    length_m = length / 1000
-    width_m = width / 1000
-    thickness_m = thickness / 1000
+# Function for unit conversion
+def convert_units(value, from_unit, to_unit):
+    # Conversion factors
+    conversion_factors = {
+        'mm': 0.001,
+        'cm': 0.01,
+        'inch': 0.0254
+    }
     
-    # Calculate volume in m³
-    volume = length_m * width_m * thickness_m
+    # Convert to meters
+    value_in_meters = value * conversion_factors[from_unit]
     
-    # Calculate weight
-    weight = volume * densities[material_type]
-    
-    st.write(f"Estimated weight: {weight:.2f} kg")
+    # Convert to desired unit
+    return value_in_meters / conversion_factors[to_unit]
+
+# User inputs
+length = st.number_input("Enter length", min_value=0.0, step=0.1)
+length_unit = st.selectbox("Select length unit", ("mm", "cm", "inch"))
+
+width = st.number_input("Enter width", min_value=0.0, step=0.1)
+width_unit = st.selectbox("Select width unit", ("mm", "cm", "inch"))
+
+thickness = st.number_input("Enter thickness", min_value=0.0, step=0.1)
+thickness_unit = st.selectbox("Select thickness unit", ("mm", "cm", "inch"))
+
+# Convert dimensions to meters
+length_m = convert_units(length, length_unit, 'm')
+width_m = convert_units(width, width_unit, 'm')
+thickness_m = convert_units(thickness, thickness_unit, 'm')
+
+# Continue with the weight calculation...
