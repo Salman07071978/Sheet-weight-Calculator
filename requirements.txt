@@ -1,12 +1,20 @@
+# Streamlit for building the web app
 streamlit==1.20.0
-numpy==1.21.6
+
+# Basic libraries
+numpy==1.23.4
 opencv-python-headless==4.6.0.66
+Pillow==9.2.0
+requests==2.28.1
+
+# PyTorch and related libraries for YOLOv5
 torch==1.13.1
 torchvision==0.14.1
 torchaudio==0.13.1
-pillow==9.2.0
-requests==2.28.1
+
+# Additional libraries for YOLOv5 (these are often needed)
 tqdm==4.64.0
 matplotlib==3.6.2
 pyyaml==6.0
 scipy==1.9.3
+
