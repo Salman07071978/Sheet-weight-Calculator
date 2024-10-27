@@ -12,8 +12,9 @@ torch==1.13.1
 torchvision==0.14.1
 torchaudio==0.13.1
 
-# Additional libraries for YOLOv5 (these are often needed)
+# Additional libraries for YOLOv5
 tqdm==4.64.0
 matplotlib==3.6.2
 pyyaml==6.0
 scipy==1.9.3
+
