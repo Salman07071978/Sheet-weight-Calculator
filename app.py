@@ -8,12 +8,13 @@ from PIL import Image
 def calculate_weight(thickness, area, material_density):
     return thickness * area * material_density
 
-# Function to get the area of a detected shape
+# Function to get the area of a detected shape using YOLOv5
 def get_area_from_image(image):
-    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', source='local')
+    # Load the YOLOv5 model (ensure you have the correct weights file if needed)
+    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', source='github')
     
+    # Perform inference on the image
     results = model(image)
-    results.show()  # This will display the detected objects if run locally
     
     # Process results to find the area
     area = 0
