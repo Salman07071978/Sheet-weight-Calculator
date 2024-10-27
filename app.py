@@ -1,6 +1,3 @@
-# Install dependencies
-!pip install streamlit pyngrok opencv-python-headless numpy Pillow
-
 # Import libraries
 import streamlit as st
 import numpy as np
