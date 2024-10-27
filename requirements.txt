@@ -1,6 +1,6 @@
 torch 
 torchvision 
 torchaudio
--U opencv-python-headless 
+opencv-python-headless 
 streamlit
 git+https://github.com/ultralytics/yolov5.git  # Install YOLOv5 directly from GitHub
