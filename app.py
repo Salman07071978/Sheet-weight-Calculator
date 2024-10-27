@@ -1,3 +1,6 @@
+# Install necessary libraries
+!pip install streamlit opencv-python-headless
+
 # Import necessary libraries
 import streamlit as st
 import cv2
@@ -23,8 +26,8 @@ def calculate_weight(thickness, length, width, density):
     weight = volume * density  # weight in grams
     return weight / 1000  # convert to kg
 
-# Function to calculate area of irregular shape
-def calculate_irregular_weight(image, thickness, density):
+# Function to calculate area of irregular shape using calibration
+def calculate_irregular_weight(image, thickness, density, calibration_length, calibration_pixels):
     # Convert image to grayscale and apply threshold
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
@@ -32,11 +35,16 @@ def calculate_irregular_weight(image, thickness, density):
     # Find contours
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Assume the largest contour is the object
-    area = cv2.contourArea(max(contours, key=cv2.contourArea))
-    
+    # Find the largest contour by area
+    largest_contour = max(contours, key=cv2.contourArea)
+    area_pixels = cv2.contourArea(largest_contour)
+
+    # Calculate real area using calibration
+    scale_factor = (calibration_length / calibration_pixels) ** 2  # (cm/pixel)^2
+    area_cm2 = area_pixels * scale_factor  # Convert pixel area to cm²
+
     # Estimate weight
-    volume = area * thickness  # in cm^3
+    volume = area_cm2 * thickness  # in cm^3
     weight = volume * density  # weight in grams
     return weight / 1000  # convert to kg
 
@@ -66,15 +74,5 @@ def main():
 
     elif shape == "Irregular":
         thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
-        uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg"])
-
-        if uploaded_image is not None:
-            image = np.array(Image.open(uploaded_image))
-            st.image(image, caption="Uploaded Image", use_column_width=True)
-
-            if st.button("Calculate Weight"):
-                weight = calculate_irregular_weight(image, thickness, density)
-                st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
-
-if __name__ == "__main__":
-    main()
+        calibration_length = st.number_input("Enter the known length of a reference object in the image (in selected unit)", min_value=0.0, format="%.2f") * conversion_factor
+        uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg
