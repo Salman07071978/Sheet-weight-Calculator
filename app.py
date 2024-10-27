@@ -23,31 +23,45 @@ def calculate_weight(thickness, length, width, density):
     weight = volume * density  # weight in grams
     return weight / 1000  # convert to kg
 
-# Function to calculate area of irregular shape using calibration
-def calculate_irregular_weight(image, thickness, density, calibration_length, calibration_pixels):
+# Function to calculate area and weight of irregular shape with reference object
+def calculate_irregular_weight_with_reference(image, thickness, density, reference_width_real):
     # Convert image to grayscale and apply threshold
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
-    
+
     # Find contours
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Find the largest contour by area
-    largest_contour = max(contours, key=cv2.contourArea)
-    area_pixels = cv2.contourArea(largest_contour)
 
-    # Calculate real area using calibration
-    scale_factor = (calibration_length / calibration_pixels) ** 2  # (cm/pixel)^2
-    area_cm2 = area_pixels * scale_factor  # Convert pixel area to cm²
+    # Get the largest contour as our main object
+    main_contour = max(contours, key=cv2.contourArea)
+    main_area_pixels = cv2.contourArea(main_contour)
+
+    # Assume reference object is the second largest contour (after main object)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    reference_contour = contours[1] if len(contours) > 1 else None
+
+    if reference_contour is None:
+        st.error("Reference object not found in the image. Please ensure a reference object is present.")
+        return None
+
+    # Get the width of the reference object in pixels
+    ref_x, ref_y, ref_w, ref_h = cv2.boundingRect(reference_contour)
+    reference_width_pixels = ref_w
+
+    # Calculate pixel-to-real-world scale
+    pixel_to_cm_ratio = reference_width_real / reference_width_pixels
+
+    # Calculate real area of the main object
+    main_area_real = main_area_pixels * (pixel_to_cm_ratio ** 2)  # in cm^2
 
     # Estimate weight
-    volume = area_cm2 * thickness  # in cm^3
+    volume = main_area_real * thickness  # in cm^3
     weight = volume * density  # weight in grams
     return weight / 1000  # convert to kg
 
 # Streamlit app
 def main():
-    st.title("MS/SS Sheet Weight Calculator")
+    st.title("MS/SS Sheet Weight Calculator with Irregular Shape Detection")
 
     # Material selection
     material_type = st.selectbox("Select Material Type", ("MS", "SS"))
@@ -71,20 +85,20 @@ def main():
 
     elif shape == "Irregular":
         thickness = st.number_input("Enter Thickness", min_value=0.0, format="%.2f") * conversion_factor
-        calibration_length = st.number_input("Enter the known length of a reference object in the image (in selected unit)", min_value=0.0, format="%.2f") * conversion_factor
-        uploaded_image = st.file_uploader("Upload an image of the sheet", type=["jpg", "png", "jpeg"])
+        uploaded_image = st.file_uploader("Upload an image of the sheet with a reference object", type=["jpg", "png", "jpeg"])
 
-        if uploaded_image is not None:
+        # Ask user for real-world reference width
+        reference_width_real = st.number_input(f"Enter the real width of reference object (in {unit})", min_value=0.0, format="%.2f")
+        reference_width_real_cm = reference_width_real * conversion_factor  # convert to cm
+
+        if uploaded_image is not None and reference_width_real_cm > 0:
             image = np.array(Image.open(uploaded_image))
             st.image(image, caption="Uploaded Image", use_column_width=True)
 
-            # Allow the user to draw a line to measure calibration length
-            st.write("Please measure the length of the reference object in pixels using any image editor, and enter it below.")
-            calibration_pixels = st.number_input("Enter the measured length of the reference object in pixels", min_value=1, format="%d")
-
-            if calibration_pixels > 0 and st.button("Calculate Weight"):
-                weight = calculate_irregular_weight(image, thickness, density, calibration_length, calibration_pixels)
-                st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
+            if st.button("Calculate Weight"):
+                weight = calculate_irregular_weight_with_reference(image, thickness, density, reference_width_real_cm)
+                if weight is not None:
+                    st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
 
 if __name__ == "__main__":
     main()
