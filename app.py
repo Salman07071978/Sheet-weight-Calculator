@@ -1,6 +1,3 @@
-# Install necessary libraries
-!pip install streamlit opencv-python-headless
-
 # Import necessary libraries
 import streamlit as st
 import cv2
