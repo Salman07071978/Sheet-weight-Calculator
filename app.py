@@ -1,6 +1,8 @@
-import torch
+# calculate_weight.py
+
 import cv2
 import numpy as np
+import subprocess
 from PIL import Image
 import streamlit as st
 
@@ -23,16 +25,21 @@ def calculate_weight(thickness, length, width, density):
     weight = volume * density  # weight in grams
     return weight / 1000  # convert to kg
 
-# Load YOLOv5 model
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='yolov5s.pt')  # Replace with custom model if trained
+# Function to perform YOLOv5 detection using a subprocess
+def detect_objects_with_yolov5(image_path, output_path="yolov5/runs/detect"):
+    subprocess.run([
+        'python', 'yolov5/detect.py', '--source', image_path,
+        '--weights', 'yolov5/yolov5s.pt', '--conf', '0.5', '--save-txt', '--save-conf'
+    ], check=True)
+    return output_path + "/exp"  # Default save directory
 
 # Function to calculate weight from segmented area and thickness
-def calculate_irregular_weight_with_segmentation(image, thickness, density, reference_width_real):
-    results = model(image)  # Perform segmentation with YOLOv5
-    results.render()  # Render segmentation mask on image
-    segmented_image = results.imgs[0]  # Get the masked image
+def calculate_irregular_weight(image_path, thickness, density, reference_width_real):
+    output_dir = detect_objects_with_yolov5(image_path)
+    segmented_image_path = f"{output_dir}/image0.jpg"  # Path to output image
 
-    # Extract the main object's contour from the segmentation
+    # Load the processed image with bounding box from YOLOv5
+    segmented_image = cv2.imread(segmented_image_path)
     gray = cv2.cvtColor(segmented_image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -90,10 +97,11 @@ def main():
 
         if uploaded_image is not None and reference_width_real_cm > 0:
             image = np.array(Image.open(uploaded_image))
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+            image_path = "uploaded_image.jpg"
+            Image.fromarray(image).save(image_path)
 
             if st.button("Calculate Weight"):
-                weight = calculate_irregular_weight_with_segmentation(image, thickness, density, reference_width_real_cm)
+                weight = calculate_irregular_weight(image_path, thickness, density, reference_width_real_cm)
                 if weight is not None:
                     st.write(f"The estimated weight of the irregular sheet is {weight:.2f} kg.")
 
