@@ -1,8 +1,6 @@
 torch 
 torchvision 
 torchaudio
-opencv-python-headless 
-numpy
-git clone https://github.com/ultralytics/yolov5  # Clone YOLOv5 repository
-qr yolov5/requirements.txt  # Install YOLOv5 dependencies
-
+-U opencv-python-headless 
+streamlit
+git+https://github.com/ultralytics/yolov5.git  # Install YOLOv5 directly from GitHub
