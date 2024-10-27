@@ -1,6 +1,11 @@
-torch 
-torchvision 
+torch
+torchvision
 torchaudio
-opencv-python-headless 
-streamlit
-git+https://github.com/ultralytics/yolov5.git  # Install YOLOv5 directly from GitHub
+opencv-python-headless
+numpy
+pillow
+requests
+tqdm
+matplotlib
+pyyaml
+scipy
