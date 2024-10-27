@@ -1,58 +1,82 @@
+# Install dependencies
+!pip install streamlit pyngrok opencv-python-headless numpy Pillow
+
+# Import libraries
 import streamlit as st
-from PIL import Image
 import numpy as np
+import cv2
+from PIL import Image
+from pyngrok import ngrok
 
-# Title of the App
-st.title('MS/SS Plate Size Estimator')
+# Constants for material densities (in g/cm^3)
+DENSITIES = {
+    "MS": 7.85,  # Mild Steel
+    "SS": 8.00   # Stainless Steel
+}
 
-# Step 1: User input for thickness and material type
-thickness = st.number_input("Enter the thickness of the plate (in mm):", min_value=0.1, step=0.1)
-material_type = st.selectbox("Select the material type:", options=["Mild Steel (MS)", "Stainless Steel (SS)"])
+def calculate_weight(density, thickness, area):
+    # Density in g/cm^3, thickness and area should be in cm^2
+    return density * thickness * area
 
-# Step 2: Choose shape or upload image for irregular shape
-shape = st.radio(
-    "Choose the shape of the plate:",
-    options=["Square", "Rectangle", "Circle", "Irregular (upload image)"]
-)
-
-# Initialize area variable
-area = None
-
-if shape == "Square":
-    side = st.number_input("Enter the side length (in mm):", min_value=0.0)
-    area = side ** 2
-    st.write(f"Area of the square plate: {area} mm²")
-
-elif shape == "Rectangle":
-    length = st.number_input("Enter the length (in mm):", min_value=0.0)
-    width = st.number_input("Enter the width (in mm):", min_value=0.0)
-    area = length * width
-    st.write(f"Area of the rectangular plate: {area} mm²")
-
-elif shape == "Circle":
-    radius = st.number_input("Enter the radius (in mm):", min_value=0.0)
-    area = np.pi * radius ** 2
-    st.write(f"Area of the circular plate: {area:.2f} mm²")
-
-elif shape == "Irregular (upload image)":
-    uploaded_file = st.file_uploader("Upload an image of the plate:", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        img = Image.open(uploaded_file)
-        st.image(img, caption="Uploaded Image", use_column_width=True)
-        st.write("For irregular shapes, you can calculate the area manually or use external tools.")
+def get_area_from_dimensions(shape, length, width=None):
+    if shape == "Rectangle":
+        return length * width
+    elif shape == "Square":
+        return length * length
     else:
-        st.warning("Please upload an image to proceed.")
+        return None
 
-# Optional: Calculating approximate weight based on material and area
-if st.button("Calculate Weight"):
-    if area is None:
-        st.error("Area is not defined. Please enter the dimensions or provide the image for an irregular shape.")
+def process_irregular_image(image):
+    # Convert image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY)
+    
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours:
+        # Assume largest contour is the object
+        contour = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(contour)
+        return area  # in pixel units
+    return None
+
+def main():
+    st.title("Metal Sheet Weight Calculator")
+
+    # User selects material type
+    material_type = st.selectbox("Select Material Type", ("MS", "SS"))
+    density = DENSITIES[material_type]
+
+    # User inputs thickness
+    thickness = st.number_input("Enter Thickness (cm)", min_value=0.01)
+
+    # User selects shape
+    shape = st.selectbox("Select Shape", ("Rectangle", "Square", "Irregular"))
+
+    if shape == "Irregular":
+        uploaded_file = st.file_uploader("Upload Image of Sheet", type=["jpg", "png", "jpeg"])
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Image", use_column_width=True)
+            image = np.array(image.convert('RGB'))
+            area = process_irregular_image(image)
+            if area is not None:
+                # Here we assume a scale (e.g., each pixel represents 0.01 cm^2, which can be calibrated)
+                scale_factor = 0.01  # Adjust based on image calibration
+                area_cm2 = area * scale_factor
+                weight = calculate_weight(density, thickness, area_cm2)
+                st.write(f"Calculated Weight: {weight:.2f} grams")
+            else:
+                st.write("Could not detect shape in image.")
     else:
-        density = 0  # density of the material (g/mm³)
-        if material_type == "Mild Steel (MS)":
-            density = 0.00785  # g/mm³
-        elif material_type == "Stainless Steel (SS)":
-            density = 0.0080  # g/mm³
+        # Regular shapes
+        length = st.number_input("Enter Length (cm)", min_value=0.01)
+        if shape == "Rectangle":
+            width = st.number_input("Enter Width (cm)", min_value=0.01)
+        else:
+            width = length
 
-        weight = area * thickness * density
-        st.write(f"Approximate weight of the plate: {weight:.2f} grams")
+        # Calculate area and weight
+        area = get_area_from_dimensions(shape, length, width)
+        weight = calculate_weight(density, thickness, area)
+        st.write(f"Calculated Weight: {weight:.2f} grams")
