@@ -1,5 +1,2 @@
-streamlit
-pyngrok 
-opencv-python-headless 
-numpy 
-Pillow
+streamlit 
+opencv-python-headless
