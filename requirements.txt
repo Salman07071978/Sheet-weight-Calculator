@@ -1,20 +1,20 @@
-# Streamlit for building the web app
+# Streamlit for the web app framework
 streamlit==1.20.0
 
-# Basic libraries
+# Core libraries for image processing and numerical computations
 numpy==1.23.4
 opencv-python-headless==4.6.0.66
 Pillow==9.2.0
-requests==2.28.1
 
-# PyTorch and related libraries for YOLOv5
+# Libraries for PyTorch (YOLOv5)
 torch==1.13.1
 torchvision==0.14.1
 torchaudio==0.13.1
 
-# Additional libraries for YOLOv5
+# Additional libraries used in the app
 tqdm==4.64.0
 matplotlib==3.6.2
 pyyaml==6.0
 scipy==1.9.3
+
 
